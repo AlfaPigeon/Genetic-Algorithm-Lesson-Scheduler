@@ -43,7 +43,25 @@ public class Main {
 
     private static void BackTrackingFit() {
 
-        // Burdan aynı isimle bir recursive arama yapılcak
+        BackTrackingFit(lessonPriorityQueue,lessonList);
+
+    }
+    private static double BackTrackingFit(final PriorityQueue<Lesson> queue, ArrayList<Lesson> placed) {
+
+        PriorityQueue<Lesson> newQueue = new PriorityQueue<Lesson>(){
+            @Override
+            public Comparator<? super Lesson> comparator() {
+                return queue.comparator();
+            }
+        };
+
+        newQueue.addAll(queue);
+
+
+
+
+
+
 
     }
     private static void getTeachers(){
