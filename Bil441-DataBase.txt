@@ -1,0 +1,63 @@
+-- Table: public."Branch"
+
+-- DROP TABLE public."Branch";
+
+CREATE TABLE public."Branch"
+(
+    id uuid NOT NULL,
+    size numeric,
+    "teacher-id" uuid,
+    "time-interval" json,
+    "room-id" uuid,
+    CONSTRAINT "Branch_pkey" PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+
+
+-- Table: public."Lesson"
+
+-- DROP TABLE public."Lesson";
+
+CREATE TABLE public."Lesson"
+(
+    id uuid NOT NULL,
+    name text COLLATE pg_catalog."default",
+    "weekly-hour" numeric,
+    "max-quota" numeric,
+    priority numeric,
+    branches uuid[],
+    CONSTRAINT "Lesson_pkey" PRIMARY KEY (id)
+)
+
+
+-- Table: public."Room"
+
+-- DROP TABLE public."Room";
+
+CREATE TABLE public."Room"
+(
+    id uuid NOT NULL,
+    name text COLLATE pg_catalog."default",
+    "max-size" numeric,
+    CONSTRAINT "Room_pkey" PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+
+-- Table: public."Teacher"
+
+-- DROP TABLE public."Teacher";
+
+CREATE TABLE public."Teacher"
+(
+    name text COLLATE pg_catalog."default",
+    id uuid NOT NULL,
+    "free-time" json,
+    "lessons-id" uuid[],
+    CONSTRAINT "Teacher_pkey" PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
