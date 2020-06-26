@@ -2,55 +2,62 @@ import random
 
 
 class Lesson(object):
-    name = ""
-    id = ""
-    weeklyHour = 2
-    maxQuota = 0
-    priority = 0
-    branches = []
+    def __init__(self):
+        self.name = ""
+        self.id = ""
+        self.weeklyHour = 2
+        self.maxQuota = 0
+        self.priority = 0
+        self.branches = []
 
 
 class Room(object):
-    maxSize = 0
-    id = ""
-    name = ""
+    def __init__(self):
+        self.maxSize = 0
+        self.id = ""
+        self.name = ""
 
 
 class Teacher(object):
-    name = ""
-    id = ""
-    lessons = []
-    timeIntervals = {}
-    free_hour = 0
+    def __init__(self):
+        self.name = ""
+        self.id = ""
+        self.lessons = []
+        self.timeIntervals = {}
+        self.free_hour = 0
 
 
 class Branch(object):
-    id = ""
-    size = 0
-    branchNumber = 0
-    teacher = Teacher()
-    timeIntervals = {}
-    room = Room()
+    def __init__(self):
+        self.id = ""
+        self.size = 0
+        self.branchNumber = 0
+        self.teacher = Teacher()
+        self.timeIntervals = {}
+        self.room = Room()
 
 
 class Branch_gen(object):
-    fitness = 0
-    branch = Branch()
-    days = []
-    times = []
-    rooms = []
+    def __init__(self):
+        self.fitness = 0
+        self.branch = Branch()
+        self.days = []
+        self.times = []
+        self.rooms = []
 
 
 class Genom(object):
-    fitness = 0
-    genes = []
+    def __init__(self):
+        self.fitness = 0
+        self.genes = []
 
 
 class Database(object):
-    Teachers = []
-    Branches = []
-    Rooms = []
-    Lessons = []
+    def __init__(self):
+        self.Teachers = []
+        self.Branches = []
+        self.Rooms = []
+        self.Lessons = []
 
 
 def importDB(database):
@@ -113,7 +120,7 @@ def crossover(gen1, gen2):
         gen2.rooms = rooms
 
 
-def evaluate(gen_pool):
+def evaluate(genom):
     # Bir Branch gen listesi gelir. Tüm genler puanlanır ve fitness'a atama yapılır.
     # Eğer imkansız durum var ise o gen direkt 0 puan alır.
     # En son tüm gen puanları toplanır ve havuza genel bir fitness puanı verilir.
@@ -125,15 +132,46 @@ def show_gen(gen):
     print(gen.days, gen.times, gen.rooms)
 
 
+def generate_randDays():
+    list = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    random.shuffle(list)
+    result = []
+    result.append(list.pop())
+    result.append(list.pop())
+    result.append(list.pop())
+    return result
+
+
+def generate_randTimes():
+    list = [random.randint(8, 16), random.randint(
+        8, 16), random.randint(8, 16)]
+    return [{"begin": str(list[0])+":30", "end":str(list[0]+2)+":30"}, {"begin": str(list[1])+":30", "end":str(list[1]+2)+":30"}, {"begin": str(list[2])+":30", "end":str(list[2]+2)+":30"}]
+
+
+def generate_randRooms(db):
+    return[random.choice(db.Rooms), random.choice(db.Rooms), random.choice(db.Rooms)]
+
+
+def generate_randPool(db, pool_size):
+    result = []
+    for i in range(pool_size):
+        gen_map = Genom()
+        result.append(gen_map)
+
+    for i in range(pool_size):
+        for branch in db.Branches:
+            gen = Branch_gen()
+            gen.branch = branch
+            gen.days = generate_randDays()
+            gen.times = generate_randTimes()
+            gen.rooms = generate_randRooms(db)
+            result[i].genes.append(gen)
+
+    return result
+
+
 def init_Branches(database, quota):
     # Gereken branch sayısını yaratır. Hocanın zamanını ve dersi almak isteyen öğrenci sayısını göz önünde bulundurur.
-
-    # id = ""
-    # size = 0
-    # branchNumber = 0
-    # teacher = Teacher()
-    # timeIntervals = {}
-    # room = Room()
 
     branches = []
     for t in database.Teachers:
@@ -159,38 +197,12 @@ def init_Genetic(db, pool, pool_size, branch_size):
 
     importDB(db)
     init_Branches(db, branch_size)
-
-    # Aşağısı test için
-    print(db.Branches[0])
-
-    branch = Branch()
-    branch.id = "3162"
-    gen1 = Branch_gen()
-    gen2 = Branch_gen()
-    gen1.branch = branch
-    gen2.branch = branch
-
-    gen1.days = ['monday', 'tuesday']
-    gen2.days = ['wednesday', 'thursday']
-
-    gen1.times = ['time1', 'time2']
-    gen2.times = ['time3', 'time4']
-
-    gen1.rooms = ['b10', 'b11']
-    gen2.rooms = ['b12', 'b13']
-
-    show_gen(gen1)
-    show_gen(gen2)
-
-    print("==CrossOver==========")
-    crossover(gen1, gen2)
-
-    show_gen(gen1)
-    show_gen(gen2)
+    pool = generate_randPool(db, pool_size)
 
 
 db = Database()
-pool_size = 100
+
+pool_size = 500
 branch_size = 100
 pool = []
 init_Genetic(db, pool, pool_size, branch_size)
