@@ -120,12 +120,41 @@ def crossover(gen1, gen2):
         gen2.rooms = rooms
 
 
-def evaluate(genom):
-    # Bir Branch gen listesi gelir. Tüm genler puanlanır ve fitness'a atama yapılır.
-    # Eğer imkansız durum var ise o gen direkt 0 puan alır.
-    # En son tüm gen puanları toplanır ve havuza genel bir fitness puanı verilir.
-
+def gen_timehit_evaluate(gen1, gen2):
+    # iki genin aynı günlerde çakışması hesaplanır puan verilir 10 puandan başlanır her saat çakışma için 1 çıkarılır
     return 0
+
+
+def gen_teacherhit_evaluate(gen1, gen2):
+    # hocalar farklıysa 10 puan verilir, hocalar aynıyda ve çakışma yoksa 20, hocalar aynı ve çakışma varsa 0
+    return 0
+
+
+def gen_roomhit_evaluate(gen1, gen2):
+    # odalar farklıysa 10 puan verilir, odalar aynıyda ve çakışma yoksa 20, odalar aynı ve çakışma varsa 0
+    return 0
+
+
+def evaluate(genom):
+
+    # Derslerin kendi aralarında çakışmaları puanlanır
+    # Aynı hocanın aynı zamanda farklı yerlerde olmamalarına dikkat edilir
+    # Aynı sınıfın aynı zamanda iki farklı ders için atanmadığına dikkat edilir
+    # Hocaların boş zamanları ile ders zamanları uyumları kontrol edilir
+
+    for gen in genom.genes:
+        for gen2 in genom.genes:
+            gen.fitness += gen_timehit_evaluate(gen, gen2)
+            gen.fitness += gen_teacherhit_evaluate(gen, gen2)
+            gen.fitness += gen_roomhit_evaluate(gen, gen2)
+
+    total_fitness = 0
+    for gen in genom.genes:
+        total_fitness += gen.fitness
+
+    genom.fitness = total_fitness
+
+    return total_fitness
 
 
 def show_gen(gen):
