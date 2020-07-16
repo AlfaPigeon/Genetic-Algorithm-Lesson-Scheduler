@@ -1,5 +1,5 @@
 import random
-
+from pg import DB
 
 class Lesson(object):
     def __init__(self):
@@ -61,45 +61,38 @@ class Database(object):
 
 
 def importDB(database):
-    # postGreSQL server ile
-    # Put dummy data here
+    # postGreSQL connection
+    db = DB(dbname='Bil_441', host='localhost', port=5432, user='postgres', passwd='123')
 
-    # Import Lessons
-    fiz101 = Lesson()
-    fiz101.id = "id_fiz101"
-    fiz101.name = "Fiz 101"
-    fiz101.weeklyHour = 4
-    fiz101.maxQuota = 200
-    fiz101.priority = 2
+    query = db.query('Select * from public.\"Lesson\"')
+    for i in query.getresult():
+        lesson = Lesson()
+        lesson.name = i[1]
+        lesson.id = i[0]
+        lesson.weeklyHour = i[2]
+        lesson.maxQuota = i[3]
+        lesson.priority = i[4]
+        database.Lessons.append(lesson)
 
-    # Import Rooms
-    amfi3 = Room()
-    amfi3.id = "id_Amfi3"
-    amfi3.name = "Amfi 3"
-    amfi3.maxSize = 100
+    query = db.query('Select * from public.\"Room\"')
+    for i in query.getresult():
+        room = Room()
+        room.maxSize = i[2]
+        room.id = i[0]
+        room.name = i[1]
+        database.Rooms.append(room) 
 
-    b11 = Room()
-    b11.id = "b11"
-    b11.name = "b11"
-    b11.maxSize = 70
+    query = db.query('Select * from public.\"Teacher\"')
+    for i in query.getresult():
+        teacher = Teacher()
+        teacher.name = i[0]
+        teacher.id = i[1]
+        teacher.lessons = [j for j in database.Lessons if (j.id in i[3])]
+        teacher.timeIntervals = dict(i[2])# test et
+        teacher.free_hour = 0# bura ayarlanıcak
+        database.Teachers.append(teacher)
 
-    # Import Teachers
-    ahmet_nuri = Teacher()
-    ahmet_nuri.timeIntervals = {"Free_Time": [{"day": "thursday", "begin": "15:30", "end": "18:30"}, {
-        "day": "friday", "begin": "9:30", "end": "12:30"}]}
-    ahmet_nuri.id = "29f7b70b-6f7a-40fc-bb52-f2fca8c395ac"
-    ahmet_nuri.lessons = [fiz101]
-    ahmet_nuri.name = "Ahmet Nuri Akay"
-    for time in ahmet_nuri.timeIntervals['Free_Time']:
-        ahmet_nuri.free_hour += int(time['end'].split(":")[0]) - \
-            int(time['begin'].split(":")[0])
-    # ===
-    database.Lessons.append(fiz101)
-    database.Rooms.append(amfi3)
-    database.Rooms.append(b11)
-    database.Teachers.append(ahmet_nuri)
-
-    return
+    return database
 
 
 def crossover(gen1, gen2):
@@ -225,6 +218,7 @@ def init_Branches(database, quota):
 def init_Genetic(db, pool, pool_size, branch_size):
 
     importDB(db)
+    return
     init_Branches(db, branch_size)
     pool = generate_randPool(db, pool_size)
 
@@ -235,3 +229,11 @@ pool_size = 500
 branch_size = 100
 pool = []
 init_Genetic(db, pool, pool_size, branch_size)
+
+
+#0,[[0,],[0,],[0,],[0,],[0,]]
+#[[0,],[0,],[0,],[0,],[0,]]
+#[[0,],[0,],[0,],[0,],[0,]]
+#[[0,],[0,],[0,],[0,],[0,]]
+#[[0,],[0,],[0,],[0,],[0,]]
+#..
