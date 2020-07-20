@@ -8,6 +8,7 @@ import time
 from libgenetic import *
 
 
+
 def gen_timehit_evaluate(gen1, gen2):
    
     fitness = 9
@@ -25,8 +26,6 @@ def gen_timehit_evaluate(gen1, gen2):
     
     # iki genin aynı günlerde çakışması hesaplanır puan verilir 9 puandan başlanır her saat çakışma için 3 çıkarılır
     return fitness
-
-
 def gen_teacherhit_evaluate(gen1, gen2):
     
     fitness = 6
@@ -49,8 +48,6 @@ def gen_teacherhit_evaluate(gen1, gen2):
 
     
     return fitness
-
-
 def gen_teacherfreetime_evaluate(gen1, gen2):
     
     fitness = 0
@@ -82,10 +79,6 @@ def gen_teacherfreetime_evaluate(gen1, gen2):
 
 
     return fitness
-
-
-
-
 def gen_roomhit_evaluate(gen1, gen2):
 
     fitness = 10
@@ -112,28 +105,49 @@ def gen_roomhit_evaluate(gen1, gen2):
 
 
     return fitness
+def gen_break_evaluate(gen1, gen2):
+    fitness = 0
+    #launch break
+    for t in gen1.times:
+        start = int(t['begin'].split(":")[0])
+        end = int(t['end'].split(":")[0])
+        if(max(start,12) >= min(end,13)):
+            fitness += 1
 
-def evaluate_paralel(gen, genes):
+    for i in range(len(gen1.days)):
+        for j in range(len(gen2.days)):
+            if(gen1.days[i] == gen2.days[j]):
+                g1time = gen1.times[i]
+                g2time = gen2.times[j]
+                start1 = int(g1time['begin'].split(":")[0])
+                start2 = int(g2time['begin'].split(":")[0])
+                end1 = int(g1time['end'].split(":")[0])
+                end2 = int(g2time['end'].split(":")[0])
+                if(max(start1,start2) > min(end1,end2)):
+                    distance = abs(start1 - end2)
+                    fitness += distance/gen1.branch.lesson.priority                 
+    return fitness
+def evaluate_paralel(gen, genes, beta):
     gen.set_fitness(0)
     for gen2 in genes:
-        gen.add_fitness(gen_timehit_evaluate(gen, gen2))
-        gen.add_fitness(gen_teacherhit_evaluate(gen, gen2))
-        gen.add_fitness(gen_roomhit_evaluate(gen, gen2))
-        gen.add_fitness(gen_teacherfreetime_evaluate(gen, gen2))
-
-    time.sleep(0.0001)
+        gen.add_fitness(gen_timehit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_teacherhit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_roomhit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_teacherfreetime_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_break_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
     return gen.fitness
 
-def evaluate_p(genom,cores):
+def evaluate_p(genom,cores,beta):
 
     # Derslerin kendi aralarında çakışmaları puanlanır
     # Aynı hocanın aynı zamanda farklı yerlerde olmamalarına dikkat edilir
     # Aynı sınıfın aynı zamanda iki farklı ders için atanmadığına dikkat edilir
     # Hocaların boş zamanları ile ders zamanları uyumları kontrol edilir
 
+    total_fitness = 0
     args=[]
     for gen in genom.genes:
-        args.append((gen, genom.genes))
+        args.append((gen, genom.genes, beta))
     
     p = Pool(cores)
     fit = p.starmap(evaluate_paralel, args)
@@ -144,15 +158,25 @@ def evaluate_p(genom,cores):
 
     time.sleep(0.1)
 
-    total_fitness = 0
+    
     for f in fit:
         total_fitness += f
 
     genom.fitness = total_fitness
 
     return total_fitness
-m1 = load("p50i840_m1.d")
-m2 = load("p50i840_m2.d")
 
-ev = evaluate_p(m1,12)
+
+
+m1 = load("data/p10i3000_wipe_m1.d")
+m2 = load("data/p10i3000_wipe_m2.d")
+
+ev = evaluate_p(m1,12,1000)
+ev = evaluate_p(m1,12,1000)
 print(ev)
+
+
+print(m2.fitness)
+exit()
+for i in m1.genes:
+    print(i.days,i.times,i.branch.teacher.name,i.branch.teacher.timeIntervals)

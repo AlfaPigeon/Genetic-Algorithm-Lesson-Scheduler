@@ -6,7 +6,7 @@ from joblib import dump, load
 from multiprocessing import Pool, freeze_support
 import time
 from libgenetic import *
-
+import numpy as np
 
 def importDB(database):
     # postGreSQL connection
@@ -209,27 +209,49 @@ def gen_roomhit_evaluate(gen1, gen2):
 
 
     return fitness
+def gen_break_evaluate(gen1, gen2):
+    fitness = 0
+    #launch break
+    for t in gen1.times:
+        start = int(t['begin'].split(":")[0])
+        end = int(t['end'].split(":")[0])
+        if(max(start,12) >= min(end,13)):
+            fitness += 1
 
-def evaluate_paralel(gen, genes):
+    for i in range(len(gen1.days)):
+        for j in range(len(gen2.days)):
+            if(gen1.days[i] == gen2.days[j]):
+                g1time = gen1.times[i]
+                g2time = gen2.times[j]
+                start1 = int(g1time['begin'].split(":")[0])
+                start2 = int(g2time['begin'].split(":")[0])
+                end1 = int(g1time['end'].split(":")[0])
+                end2 = int(g2time['end'].split(":")[0])
+                if(max(start1,start2) > min(end1,end2)):
+                    distance = abs(start1 - end2)
+                    fitness += distance/gen1.branch.lesson.priority                 
+    return fitness
+def evaluate_paralel(gen, genes, beta):
     gen.set_fitness(0)
     for gen2 in genes:
-        gen.add_fitness(gen_timehit_evaluate(gen, gen2)/(gen.branch.lesson.priority*1000))
-        gen.add_fitness(gen_teacherhit_evaluate(gen, gen2)/gen.branch.lesson.priority*1000)
-        gen.add_fitness(gen_roomhit_evaluate(gen, gen2)/gen.branch.lesson.priority*1000)
-        gen.add_fitness(gen_teacherfreetime_evaluate(gen, gen2)/gen.branch.lesson.priority*1000)
-
+        gen.add_fitness(gen_timehit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_teacherhit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_roomhit_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_teacherfreetime_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
+        gen.add_fitness(gen_break_evaluate(gen, gen2)/(gen.branch.lesson.priority*beta))
     return gen.fitness
 
-def evaluate_p(genom,cores):
+def evaluate_p(genom,cores,beta):
 
     # Derslerin kendi aralarında çakışmaları puanlanır
     # Aynı hocanın aynı zamanda farklı yerlerde olmamalarına dikkat edilir
     # Aynı sınıfın aynı zamanda iki farklı ders için atanmadığına dikkat edilir
     # Hocaların boş zamanları ile ders zamanları uyumları kontrol edilir
 
+    total_fitness = 0
     args=[]
     for gen in genom.genes:
-        args.append((gen, genom.genes))
+        args.append((gen, genom.genes, beta))
     
     p = Pool(cores)
     fit = p.starmap(evaluate_paralel, args)
@@ -240,7 +262,7 @@ def evaluate_p(genom,cores):
 
     time.sleep(0.1)
 
-    total_fitness = 0
+    
     for f in fit:
         total_fitness += f
 
@@ -286,23 +308,21 @@ def generate_randPool(db, pool_size):
     return result
 
 
-def init_Branches(database, quota):
+def init_Branches(database):
     # Gereken branch sayısını yaratır. Hocanın zamanını ve dersi almak isteyen öğrenci sayısını göz önünde bulundurur.
-
     branches = []
     for t in database.Teachers:
-        # print(t.free_hour)
         for lesson in t.lessons:
             opened = 0
             for bcont in range(lesson.numofbranch):
-                if(t.free_hour > 0 and lesson.maxQuota > 0):
+                if(t.free_hour >= lesson.weeklyHour and lesson.maxQuota > 0):
                     t.free_hour -= lesson.weeklyHour
                     branch = Branch()
                     branch.branchNumber = len(lesson.branches)
                     branch.id = "B_"+str(branch.branchNumber)+"_L_"+str(lesson.id)
                     branch.teacher = t
                     size = int(lesson.maxQuota/(lesson.numofbranch+len(lesson.branches)))
-                    branch.size = lesson.maxQuota if(lesson.maxQuota-size >= 0) else size
+                    branch.size = size if(lesson.maxQuota-size >= 0) else lesson.maxQuota
                     lesson.maxQuota -= branch.size
                     branch.lesson = lesson
                     branch.lessonid = lesson.id
@@ -310,77 +330,79 @@ def init_Branches(database, quota):
                     lesson.branches.append(branch)
                     branches.append(branch)
             lesson.numofbranch -= opened
-    
     database.Branches = branches
 
+
 fitness_data = []
-def init_Genetic(db, pool, pool_size, branch_size, iteration, cores):
+def init_Genetic(db, pool, pool_size, iteration, cores, beta):
 
     importDB(db)
-    init_Branches(db, branch_size)
+    init_Branches(db)
     pool = generate_randPool(db, pool_size)
 
-    #pool[0] = load("data/p50i840_m1.d")#pretrained
+    pool[0] = load("data/p10i3000_wipe_m1.d")#pretrained
     #pool[1] = load("p50i840_m2.d")#pretrained
-    max1 = pool[0]
-    max2 = pool[1]
-    min1 = pool[2]
-    min2 = pool[3]
 
     maxf_old = -1
     maxf = -1
     stuckcounter = 0
     for i in range(iteration):
-        print("iteration:",i+1,"started")
-        min1 = max1
-        min2 = max2
-        for genom_index in range(len(pool)):
-            fit = evaluate_p(pool[genom_index],cores)
-            if(fit >= max1.fitness):
-                max1 = pool[genom_index]
-            elif(fit >= max2.fitness):
-                max2 = pool[genom_index]
-            elif(fit <= min1.fitness):
-                min1 = pool[genom_index]
-            elif (fit <= min2.fitness):
-                min2 = pool[genom_index]
-            
-            maxf = max(fit,maxf)
 
+        print("iteration:",i+1,"fit:",maxf)
+
+        for genom_index in range(len(pool)):
+            fit = evaluate_p(pool[genom_index],cores,beta)        
+            maxf = max(fit,maxf)
         fitness_data.append(maxf)
+
         if( maxf == maxf_old ):
             stuckcounter += 1 
-        maxf_old = maxf    
-        c1, c2 = crossover_Genom(max1, max2)
-        pool.remove(min1)
-        pool.remove(min2)
+        maxf_old = maxf
+
+        pool.sort(key=lambda x: x.fitness, reverse=True)
+        c1, c2 = crossover_Genom(pool[0], pool[1])
+        c3, c4 = crossover_Genom(random.choice(pool), random.choice(pool))
+
+        pool.pop()
+        pool.pop()
+        pool.pop()
+        pool.pop()
+
         pool.append(c1)
         pool.append(c2)
-        
+        pool.append(c3)
+        pool.append(c4)
+
         if(stuckcounter > 5):
+            fittest = pool[0]
             pool = generate_randPool(db, pool_size)#Wipe everyone
-            pool[0] = max1
-            max2 = pool[1]
-            min1 = pool[2]
-            min2 = pool[3]   
+            pool[0] = fittest 
             stuckcounter = 0
-        #print("iteration:",i+1,"ended")
-    return (max1,max2)        
+    
+    for genom_index in range(len(pool)):
+        fit = evaluate_p(pool[genom_index],cores,beta)        
+        maxf = max(fit,maxf)
+    pool.sort(key=lambda x: x.fitness, reverse=True)
+    return (pool[0],pool[1])        
 
 
 db = Database()
-pool_size = 20
-branch_size = 100
-iteration = 180
-cores = 12
+pool_size = 15
+branch_size = 120
+iteration = 5
+cores = 20
+beta = 1000
 pool = []
-(m1,m2) = init_Genetic(db, pool, pool_size, branch_size, iteration, cores)
-dump(m1, 'data/p20i1180_wipe_m1.d')
-#dump(m2, 'p50i840_m2.d')
-print(fitness_data)
+(m1,m2) = init_Genetic(db, pool, pool_size, iteration, cores, beta)
+
+
+#dump(m1, 'data/p10i3000_wipe_m1.d')
+#dump(m2, 'data/p10i3000_wipe_m2.d')
+
+#print(fitness_data)
 
 plt.plot(fitness_data)
-plt.savefig('data//p20i1180_wipe.png')
+#plt.savefig('data/p10i3000_wipe.png')
 
-#plt.show()
+plt.show()
 
