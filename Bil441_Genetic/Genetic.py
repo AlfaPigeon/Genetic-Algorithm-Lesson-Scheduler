@@ -49,7 +49,27 @@ def importDB(database):
         database.Teachers.append(teacher)
 
     return database
+def exportDB(Genom):
+    db = DB(dbname='Bil_441', host='localhost', port=5432, user='postgres', passwd='123')
 
+    for gen in Genom.genes:
+        id = gen.branch.id
+        teacherid = gen.branch.teacher.id
+        time = {"Time":[]}
+        rooms = []
+        size = gen.branch.size
+        lessonid = gen.branch.lesson.id
+        weeklyHour = int(db.query('SELECT \"weekly-hour\" FROM public.\"Lesson\" where id=\''+str(gen.branch.lesson.id)+'\'').getresult()[0][0])
+        
+        if(weeklyHour % 2 == 1):
+            weeklyHour += 1
+        if(weeklyHour > 6):
+            weeklyHour = 6
+        for i in range(int(weeklyHour/2)):
+            time['Time'].append({"day":gen.days[i],"begin":gen.times[i]['begin'],"end":gen.times[i]['end']})
+            rooms.append(str(gen.rooms[i].id))
+        
+        db.query("INSERT INTO public.\"Branch\"(size, \"teacher-id\", \"time-interval\", \"rooms-id\", id, \"lesson-id\") VALUES ("+str(size)+", \'"+str(teacherid)+"\', \'"+str(time).replace("\'","\"")+"\', \'"+str(rooms).replace("[","{").replace("]","}").replace("\'","\"")+"\', \'"+str(id)+"\',\'"+str(lessonid)+"\')")
 
 def crossover(gen1, gen2):
     
@@ -125,7 +145,7 @@ def gen_timehit_evaluate(gen1, gen2):
                 start2 = int(g2time['begin'].split(":")[0])
                 end1 = int(g1time['end'].split(":")[0])
                 end2 = int(g2time['end'].split(":")[0])
-                if(max(start1,start2) <= min(end1,end2)):
+                if(max(start1,start2) < min(end1,end2)):
                     fitness -= 3
     
     # iki genin aynı günlerde çakışması hesaplanır puan verilir 9 puandan başlanır her saat çakışma için 3 çıkarılır
@@ -144,7 +164,7 @@ def gen_teacherhit_evaluate(gen1, gen2):
                     start2 = int(g2time['begin'].split(":")[0])
                     end1 = int(g1time['end'].split(":")[0])
                     end2 = int(g2time['end'].split(":")[0])
-                    if(max(start1,start2) <= min(end1,end2)):
+                    if(max(start1,start2) < min(end1,end2)):
                         fitness -= 3
     else:
         fitness += 3
@@ -195,7 +215,7 @@ def gen_roomhit_evaluate(gen1, gen2):
                 start2 = int(g2time['begin'].split(":")[0])
                 end1 = int(g1time['end'].split(":")[0])
                 end2 = int(g2time['end'].split(":")[0])
-                if(max(start1,start2) <= min(end1,end2)):
+                if(max(start1,start2) < min(end1,end2)):
                     fitness -= 3     
    
 
@@ -340,7 +360,7 @@ def init_Genetic(db, pool, pool_size, iteration, cores, beta):
     init_Branches(db)
     pool = generate_randPool(db, pool_size)
 
-    pool[0] = load("data/p10i3000_wipe_m1.d")#pretrained
+    #pool[0] = load("data/p10i3000_wipe_m1.d")#pretrained
     #pool[1] = load("p50i840_m2.d")#pretrained
 
     maxf_old = -1
@@ -387,7 +407,7 @@ def init_Genetic(db, pool, pool_size, iteration, cores, beta):
 
 
 db = Database()
-pool_size = 15
+pool_size = 10
 branch_size = 120
 iteration = 5
 cores = 20
