@@ -1,2 +1,2 @@
 # Bil_441
-Grup ödevi
+A group project on optimizing lesson schedule by using a genetic algorithm
